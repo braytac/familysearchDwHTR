@@ -7,10 +7,10 @@ grep -ir blabla --include *.txt
 , eventually text to DB and SQL query. 
 
 Now, with tkinter
-![main window](https://raw.githubusercontent.com/braytac/familysearchDwHTR/master/imgs/main.png?token=AACEXV7QXAT2OGSZ6CYFQKC6ZWRP4)
+![main window](https://github.com/braytac/familysearchDwHTR/blob/master/imgs/main.png)
 
 Actual log:
-![main window](https://raw.githubusercontent.com/braytac/familysearchDwHTR/master/imgs/progress.png?token=AACEXVZZDLLYLAYL25BHOC26ZWRQA)
+![main window](https://github.com/braytac/familysearchDwHTR/blob/master/imgs/progress.png)
 
 Stable old v. 
 ![Extract txt](https://github.com/braytac/familysearchDwHTR/blob/master/imgs/Captura%20de%20pantalla_2020-05-22_07-28-07.png)
