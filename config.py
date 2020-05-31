@@ -11,7 +11,7 @@ class Configurations:
                                 'password': '',
                                 'defaut_file': 'record-image_.jpg',
                                 'workdir': '',
-                                'microfilm': 'https://www.familysearch.org/ark:/61903/3:1:3QSQ-G92H-L4DZ?i=2&cat=25735',
+                                'microfilm': 'https://www.familysearch.org/ark:/...',
                                 'hold_imgs': '1'
                                 }
 

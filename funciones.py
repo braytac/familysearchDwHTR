@@ -17,10 +17,9 @@ from pathlib import Path
 
 class FamilySearch(unittest.TestCase):
 
-    #def __init__(self):
-        #import main
-        #from main import hold_imgs
-        #print(hold_imgs)
+    def __init__(self):
+        self.microfilms = None
+        self.driver = None
 
     def setUp(self, firefox_bin):
         
@@ -71,25 +70,12 @@ class FamilySearch(unittest.TestCase):
     def secuencias( self, workdir, archivo, microfilms, hold_imgs ):
 
         driver = self.driver
+        self.microfilms = microfilms
+
         driver.get(microfilms)
+        time.sleep(3)
 
         try:
-            time.sleep(3)
-            nro_pagFieldElement=WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_name("currentTileNumber")
-                )
-
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_class_name("afterInput")
-                )
-
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.
-                    find_element_by_class_name("afterInput").
-                    get_attribute("innerHTML").
-                    replace("of ", "").
-                    isnumeric()
-                )
 
             css_nombre_mf = "div.film-viewer-header div.film-number"
             nombre_mf=WebDriverWait(driver,10).until(
@@ -105,37 +91,37 @@ class FamilySearch(unittest.TestCase):
             ruta_imgs.mkdir(parents=True,exist_ok=True)
 
             # archivos ya descargados
-            lista = existentes( ruta_imgs ) 
+            lista_jpgs = existentes( ruta_imgs ) 
+            lista_txts = existentes( ruta_txts )
+            
+            lista_jpgs.sort()
+            lista_txts.sort()
+            
+            lista_restantes_HTR = list( set(lista_jpgs) - set(lista_txts))
 
             # max pag descargada
-            if not lista:
-                max_descargado = 0
+            #if not lista_jpgs:
+            if not lista_restantes_HTR:
+                max_descargado = 1
             else:
-                max_descargado = max(lista)
+                max_descargado = max(lista_txts)
+                #max_descargado = max(lista_restantes_HTR) #max(lista_jpgs)
 
-            maxP = driver.find_element_by_class_name("afterInput").get_attribute("innerHTML")
-            maxP = maxP.replace("of ", "")
+            print("Máx descargado: "+str(max_descargado))
+            maxP = self.numero_maximo_imagenes()
+            
+            #numero_pag = self.numero_pagina_actual()
 
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.
-                    find_element_by_name("currentTileNumber").
-                    get_attribute("value").
-                isnumeric()
-                )
-            numero_pag = nro_pagFieldElement.get_attribute("value")
+            self.ir_a_pagina( str(max_descargado+1) )
+            time.sleep(3)
+            #driver.refresh()
+            numero_pag = self.numero_pagina_actual()
 
             WebDriverWait(driver,10).until(
                 lambda driver:driver.find_element_by_css_selector(
                     "#ImageViewer div div.openseadragon-canvas canvas"
                     )
-                )
-
-            #nro_pagFieldElement.set_attribute("value",max_descargado)
-            
-            nro_pagFieldElement = driver.find_element_by_name("currentTileNumber")
-            nro_pagFieldElement.clear()
-            nro_pagFieldElement.send_keys(max_descargado)
-            nro_pagFieldElement.send_keys(Keys.RETURN)
+                )            
 
         except:
             print("Ocurrió algún error en la conexión")
@@ -143,18 +129,13 @@ class FamilySearch(unittest.TestCase):
 
         #self.log_win = AppGui()
 
-        while( int(numero_pag) <= int(maxP) ):
-            saveFieldElement=WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_css_selector("#saveLi > a.actionToolbarSaveButton")
-                )
+        #self.ir_a_pagina( str(max_descargado) )
 
-            nextBtnFieldElement=WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_class_name("next")
-                )
-            #img = Path.joinpath( Path( dir_imgs ) , numero_pag + ".jpg" )
-            #img = Path( os.path.join( dir_imgs , numero_pag+".jpg") )
+        while( numero_pag <= maxP ):
 
-            if resta_descargar( lista , numero_pag): # and not img.exists():
+            time.sleep(1)
+            # Si el jpg aún no existe en FS
+            if resta_descargar( lista_jpgs , numero_pag): # and not img.exists():
 
                 #flrm = Path("/tmp/record-image_.jpg")
                 #flrm = Path.joinpath( Path('/tmp') , 'record-image*' )
@@ -165,40 +146,99 @@ class FamilySearch(unittest.TestCase):
                 
                 #if flrm.exists():
                 #    flrm.unlink()        
-                time.sleep(4)            
+
+                WebDriverWait(driver,10).until(
+                    lambda driver:driver.find_element_by_css_selector(
+                        "#ImageViewer div div.openseadragon-canvas canvas"
+                        )
+                    )  
+
+                saveFieldElement=WebDriverWait(driver,10).until(
+                    lambda driver:driver.find_element_by_css_selector("#saveLi > a.actionToolbarSaveButton")
+                    )
+
                 saveFieldElement.click()
 
                 # Esperar que termine descarga y mover a workdir/img
                 print('\nDescargando '+str(numero_pag), end ="")
-                download_finished( ruta_imgs, numero_pag, archivo, nombre_mf )
+                df_ok = self.download_finished( ruta_imgs, numero_pag, archivo, nombre_mf )
 
-                # Extraer texto 
-                app_log=0
-                self.handprintear(app_log, numero_pag, ruta_imgs, ruta_txts, hold_imgs)
+                app_log = 0
 
-            nextBtnFieldElement.click()
-            time.sleep(3)
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_css_selector(
-                    "#ImageViewer div div.openseadragon-canvas canvas"
-                    )
-                )
+                if df_ok:
+                    # Extraer texto 
+                    #self.handprintear(app_log, numero_pag, ruta_imgs, ruta_txts, hold_imgs)
+                    self.tesseract(app_log, numero_pag, ruta_imgs, ruta_txts, hold_imgs)                
 
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.find_element_by_name("currentTileNumber")
-            )
+                    time.sleep(3)
+                    #numero_pag = self.numero_pagina_actual()
+                    numero_pag+= 1
+                #else:
+                    # Falló  la descarga, timeout etc...
+            else:
+                # Si ya existe (nº).jpg paso al siguiente
+                numero_pag+= 1
+                
+            self.ir_a_pagina(numero_pag)
 
-            WebDriverWait(driver,10).until(
-                lambda driver:driver.
-                    find_element_by_name("currentTileNumber").
-                    get_attribute("value").
-                isnumeric()
-                )
-            numero_pag = driver.find_element_by_name("currentTileNumber").get_attribute("value")
         print("Finalizado")
 
         return driver
 
+    def numero_maximo_imagenes(self):
+
+        driver = self.driver        
+        # Número máximo de imágenes.
+        WebDriverWait(driver,10).until(
+            lambda driver:driver.find_element_by_class_name("afterInput")
+            )
+
+        WebDriverWait(driver,10).until(
+            lambda driver:driver.
+                find_element_by_class_name("afterInput").
+                get_attribute("innerHTML").
+                replace("of ", "").
+                isnumeric()
+            )
+
+
+        maxP = driver.find_element_by_class_name("afterInput").get_attribute("innerHTML")
+        return int (maxP.replace("of ", "").strip() )
+
+    def numero_pagina_actual(self):
+        driver = self.driver
+        nro_pagFieldElement=WebDriverWait(driver,10).until(
+            lambda driver:driver.find_element_by_name("currentTileNumber")
+            )
+        WebDriverWait(driver,10).until(
+            lambda driver:driver.
+                find_element_by_name("currentTileNumber").
+                get_attribute("value").
+            isnumeric()
+            )
+        return int( nro_pagFieldElement.get_attribute("value").strip() )
+
+
+    def ir_a_pagina(self, pagina):
+    
+        driver = self.driver
+        
+        WebDriverWait(driver,10).until(
+            lambda driver:driver.
+                find_element_by_name("currentTileNumber").
+                get_attribute("value").
+            isnumeric()
+            )
+
+        nro_pagFieldElement=WebDriverWait(driver,10).until(
+            lambda driver:driver.find_element_by_name("currentTileNumber")
+            )
+
+        #nro_pagFieldElement = driver.find_element_by_name("currentTileNumber")
+        nro_pagFieldElement.clear()
+        nro_pagFieldElement.send_keys( str(pagina) )
+        print("Yendo a pág.: "+ str(pagina) )
+        nro_pagFieldElement.send_keys(Keys.RETURN)
 
     def handprintear(self, AppLog, pagina, ruta_imgs, ruta_txts, hold_imgs):
 
@@ -221,7 +261,8 @@ class FamilySearch(unittest.TestCase):
             print('\nHandprinteando página '+pagina+'...' )
 
             try:
-                cmd = handprint+' -s google "'+ruta_jpg+'" -C -G -e -o "'+ruta_txts+'"'                
+                #-C -G 
+                cmd = handprint+' -s google "'+ruta_jpg+'" -G -e -o "'+ruta_txts+'"'                
                 res = subprocess.Popen(
                                 cmd,
                                 shell=True, 
@@ -244,49 +285,108 @@ class FamilySearch(unittest.TestCase):
         if hold_imgs == 0:
             os.remove( ruta_jpg_p )
 
+    def tesseract(self, AppLog, pagina, ruta_imgs, ruta_txts, hold_imgs):
 
-def download_finished( ruta_imgs , numero_pag, archivo, nombre_mf ):
-    
-    # nombre_mf: nombre del directori del microfilm/rollo
-    time_out_dl = 0
-    #wait for download complete
-    wait = True
-    
-    while( wait == True ):
+        pagina = str(pagina)
         
-        tmpfile = Path.joinpath( Path('/tmp') , archivo )
-        archivo_pagina = Path.joinpath( ruta_imgs , numero_pag+".jpg" )
-        parttmpfile = Path.joinpath( Path('/tmp') , archivo+'.part' )
-        
-           
-        if tmpfile.is_file() and not parttmpfile.is_file():
-            time.sleep(1)
-            wait = False
-            #try:
-            shutil.move( tmpfile , archivo_pagina )
-            time.sleep(1)
-            #except:
-            #    print("Problema con "+ numero_pag)
-            #    pass
-        else:
-            print(".", end ="")
-            time.sleep(0.1)
-            time_out_dl+=1
+        ruta_txt = Path.joinpath(ruta_txts, pagina + '.txt')        
+
+        ruta_jpg_p = Path.joinpath(ruta_imgs, pagina + '.jpg')
+
+        ruta_jpg = str( ruta_jpg_p )
+        ruta_txts = str(ruta_txts)
+
+        if ruta_txt.exists(): 
+            print("\nReconocimiento de pág. "+pagina+" ya realizado")
+        else:    
+            print('\nOCR página '+pagina+'...' )
+
+            try:
+                cmd = 'tesseract "'+ruta_jpg+'" "'+ruta_txts+'/'+pagina+'" -l spa'
+                res = subprocess.Popen(
+                                cmd,
+                                shell=True, 
+                                stdout=subprocess.PIPE)
+
+
+                while res.poll() is None:
+                    s = res.stdout.readline()
+                    s = s.decode(sys.getdefaultencoding()).rstrip()
+                    print(s)
+
+            except:
+                print("\n\nOcurrió algún problema con OCR\n\n")
+                raise
             
-        if time_out_dl > 100:
-            raise ValueError('El archivo temporal no se está descargando.')
+        # Si se ha destildado conservar las imágenes:   
+        if hold_imgs == 0:
+            try:
+                os.remove( ruta_jpg_p )
+            except:
+                pass
+            
+        print("Tesseract terminado")
 
 
-# In[ ]:
 
+    def download_finished( self, ruta_imgs, numero_pag, archivo, nombre_mf ):
+        
+        numero_pag = str(numero_pag)
+        # nombre_mf: nombre del directori del microfilm/rollo
+        time_out_dl = 0
+        #wait for download complete
+        wait = True
+        
+        while( wait == True ):
+            
+            tmpfile = Path.joinpath( Path('/tmp') , archivo )
+            archivo_pagina = Path.joinpath( ruta_imgs , numero_pag+".jpg" )
+            parttmpfile = Path.joinpath( Path('/tmp') , archivo+'.part' )
+            
+            
+            if tmpfile.is_file() and not parttmpfile.is_file():
+                time.sleep(1)
+                wait = False
+                #try:
+                shutil.move( tmpfile , archivo_pagina )
+                time.sleep(1)
+                #except:
+                #    print("Problema con "+ numero_pag)
+                #    pass
+            else:
+                print(".", end ="")
+                time.sleep(0.1)
+                time_out_dl+=1
+                
+            if time_out_dl > 100:
+                print('El archivo temporal no se está descargando, o tarda demasiado.')
+                wait = False
+
+                numero_pag = str( int(numero_pag))
+                time.sleep(4)
+                driver = self.driver
+                driver.get(self.microfilms)
+                time.sleep(3)
+                self.ir_a_pagina(numero_pag)
+                time.sleep(2)
+                #driver.refresh()
+                time.sleep(4)
+                retorno = False
+                #self.numero_pagina_actual()
+                pass
+            else:
+                retorno = True
+
+        return retorno
 
 def existentes( ruta ):
     lista = []
     for f in os.listdir(ruta):
-        try:
-            lista.append(int(f[:-4]))
-        except:
-            pass
+        #lista.append(int(f[:-4]))
+        if f.endswith(".jpg") or f.endswith(".txt"):
+            lista.append(int(f.split('.', 1)[0]))        
+            #lista.append(f.split('.', 1)[0])
+
     return lista
         
 def resta_descargar( lista , nro_pag ):
